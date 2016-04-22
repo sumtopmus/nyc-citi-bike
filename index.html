@@ -1,22 +1,24 @@
 <!DOCTYPE html>
 <head>
 	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 	<title>nyc-citi-bikes</title>
 	<link rel="stylesheet" type="text/css" href="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.css" />
 	<link rel="stylesheet" type="text/css" href="css/styles.css" />
 	<link rel="stylesheet" type="text/css" href="css/ll-custom.css" />
+	<script src="http://www.numericjs.com/lib/numeric-1.2.6.min.js"></script>
 	<script src="http://d3js.org/d3.v3.min.js"></script>
 	<script src="http://d3js.org/colorbrewer.v1.min.js"></script>
 	<script src="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.js"></script>
 <body>
-	<h2 id="toc_0">NYC Citi Bike</h2>
-	<h6 id="toc_1">Bike docks by size (circle volume) and departures count (color from blue to yellow)</h6>
+	<h2 id="toc_0">NYC Citi Bike (2015)</h2>
+	<h6 id="toc_1">Bike docks by size (circle volume) and departures count (color)</h6>
 	<div id="map1" class="llmap"></div>
-	<h6 id="toc_2">Bike docks by size (circle volume) and mean time of usage (color from blue to yellow)</h6>
+	<h6 id="toc_2">Bike docks by size (circle volume) and average usage time in minutes (color)</h6>
 	<div id="map2" class="llmap"></div>
 
 	<script type="text/javascript">
-		var centerLocation = [40.733, -73.98];
+		var centerLocation = [40.73, -73.98];
 		var zoomLevel = 12;
 
 		var mapboxProjectID = 'tckh.pmj1j8f2';
@@ -44,6 +46,8 @@
 							  "#f2844b", "#f89540", "#fca636", "#feba2c", "#fcce25", "#f7e425", "#f0f921"];
 
 			var maxTotalDocks = d3.max(data, function(d) { return +d.totalDocks; });
+			var maxDepCount = d3.max(data, function(d) { return +d.dep_count; });
+			var maxMeanUsageTime = d3.max(data, function(d) { return +d.dep_mean; });
 			var radius = d3.scale.sqrt()
 						   .domain([0, maxTotalDocks])
 						   .range([0, maxCirleMarkerRadius]);
@@ -54,18 +58,57 @@
 									   .domain(d3.extent(data, function(d) { return +d.dep_mean; }))
 									   .range(colorRange);
 
+			var legend1 = L.control({position: 'bottomright'});
+			legend1.onAdd = function (map) {
+				var div = L.DomUtil.create('div', 'info legend'),
+					grades = numeric.linspace(0, 1e5, 6),
+					stepToAdd = (grades[1] - grades[0])/5 + 1;
+
+				// div.innerHTML = "<b>Departures count</b><br>"
+				for (var i = grades.length; i > 0 ; i--) {
+					div.innerHTML +=
+						'<i style="background:' + colorDepCount(grades[i-1]+stepToAdd) + '"></i>'
+						+ grades[i-1]
+						+ (grades[i] ? '&ndash;' + (+grades[i]-1) : '+')
+						+ (grades[i-1] ? '<br>' : '');
+				}
+
+				return div;
+			};
+			legend1.addTo(map1);
+
+			var legend2 = L.control({position: 'bottomright'});
+			legend2.onAdd = function (map) {
+				var div = L.DomUtil.create('div', 'info legend'),
+					grades = numeric.linspace(0, 40, 5),
+					stepToAdd = (grades[1] - grades[0])/5 + 1;
+
+				for (var i = grades.length; i > 0 ; i--) {
+					div.innerHTML +=
+						'<i style="background:' + colorMeanUsageTime(60 * (grades[i-1]+stepToAdd)) + '"></i>'
+						+ grades[i-1]
+						+ (grades[i] ? '&ndash;' + (+grades[i]-1) : '+')
+						+ (grades[i-1] ? '<br>' : '');
+				}
+
+				return div;
+			};
+			legend2.addTo(map2);
+
 			data.forEach(function(d) {
 				L.circle([+d.latitude, +d.longitude], radius(+d.totalDocks), {
 					color: colorDepCount(+d.dep_count),
 					fillColor: colorDepCount(+d.dep_count),
 					fillOpacity: 0.65
-				}).addTo(map1);
+				}).bindPopup(d.name + '<br>Number of docks: ' + d.totalDocks)
+				  .addTo(map1);
 
 				L.circle([+d.latitude, +d.longitude], radius(+d.totalDocks), {
 					color: colorMeanUsageTime(+d.dep_mean),
 					fillColor: colorMeanUsageTime(+d.dep_mean),
 					fillOpacity: 0.65
-				}).addTo(map2);
+				}).bindPopup(d.name + '<br>Number of docks: ' + d.totalDocks)
+				  .addTo(map2);
 			});
 		});
 	</script>
