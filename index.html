@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<head>
+	<meta charset="utf-8">
+	<title>nyc-citi-bikes</title>
+	<link rel="stylesheet" type="text/css" href="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.css" />
+	<link rel="stylesheet" type="text/css" href="css/styles.css" />
+	<link rel="stylesheet" type="text/css" href="css/ll-custom.css" />
+	<script src="http://d3js.org/d3.v3.min.js"></script>
+	<script src="http://d3js.org/colorbrewer.v1.min.js"></script>
+	<script src="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.js"></script>
+<body>
+	<h2 id="toc_0">NYC Citi Bike</h2>
+	<h6 id="toc_1">Bike docks by size (circle volume) and departures count (color from blue to yellow)</h6>
+	<div id="map1" class="llmap"></div>
+	<h6 id="toc_2">Bike docks by size (circle volume) and mean time of usage (color from blue to yellow)</h6>
+	<div id="map2" class="llmap"></div>
+
+	<script type="text/javascript">
+		var centerLocation = [40.733, -73.98];
+		var zoomLevel = 12;
+
+		var mapboxProjectID = 'tckh.pmj1j8f2';
+		var accessToken = 'pk.eyJ1IjoidGNraCIsImEiOiJjaW4ya21ic3AwYmpudW5tNGVkYjZlZmY1In0.G-FbINfBOJqYVoIrcmY8lw';
+		var attribution = '<a href="http://mapbox.com">Mapbox</a> | <a href="http://openstreetmap.org">OpenStreetMap</a>';
+
+		var map1 = L.map('map1').setView(centerLocation, zoomLevel);
+		L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}', {
+			attribution: attribution,
+			id: mapboxProjectID,
+			accessToken: accessToken
+		}).addTo(map1);
+
+		var map2 = L.map('map2').setView(centerLocation, zoomLevel);
+		L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}', {
+			attribution: attribution,
+			id: mapboxProjectID,
+			accessToken: accessToken
+		}).addTo(map2);
+
+		d3.csv("data/trips-pivot.csv", function(data){
+			var maxCirleMarkerRadius = 150;
+			var colorRange = ["#0d0887", "#2a0593", "#41049d", "#5601a4", "#6a00a8", "#7e03a8", "#8f0da4",
+							  "#a11b9b", "#b12a90", "#bf3984", "#cc4778", "#d6556d", "#e16462", "#ea7457",
+							  "#f2844b", "#f89540", "#fca636", "#feba2c", "#fcce25", "#f7e425", "#f0f921"];
+
+			var maxTotalDocks = d3.max(data, function(d) { return +d.totalDocks; });
+			var radius = d3.scale.sqrt()
+						   .domain([0, maxTotalDocks])
+						   .range([0, maxCirleMarkerRadius]);
+			var colorDepCount = d3.scale.quantize()
+								  .domain(d3.extent(data, function(d) { return +d.dep_count; }))
+								  .range(colorRange);
+			var colorMeanUsageTime = d3.scale.quantize()
+									   .domain(d3.extent(data, function(d) { return +d.dep_mean; }))
+									   .range(colorRange);
+
+			data.forEach(function(d) {
+				L.circle([+d.latitude, +d.longitude], radius(+d.totalDocks), {
+					color: colorDepCount(+d.dep_count),
+					fillColor: colorDepCount(+d.dep_count),
+					fillOpacity: 0.65
+				}).addTo(map1);
+
+				L.circle([+d.latitude, +d.longitude], radius(+d.totalDocks), {
+					color: colorMeanUsageTime(+d.dep_mean),
+					fillColor: colorMeanUsageTime(+d.dep_mean),
+					fillOpacity: 0.65
+				}).addTo(map2);
+			});
+		});
+	</script>
+</body>
