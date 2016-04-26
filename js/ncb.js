@@ -16,7 +16,7 @@ function createMap(mapID) {
 		attribution: attribution,
 		id: mapboxProjectID,
 		accessToken: accessToken })
-	 .addTo(map);
+		.addTo(map);
 	return map;
 }
 
@@ -25,14 +25,14 @@ function addData(data) {
 	var maxDepCount = d3.max(data, function(d) { return +d.dep_count; });
 	var maxMeanUsageTime = d3.max(data, function(d) { return +d.dep_mean; });
 	var radius = d3.scale.sqrt()
-				   .domain([0, maxTotalDocks])
-				   .range([0, maxCirleMarkerRadius]);
+		.domain([0, maxTotalDocks])
+		.range([0, maxCirleMarkerRadius]);
 	var colorDepCount = d3.scale.quantize()
-						  .domain(d3.extent(data, function(d) { return +d.dep_count; }))
-						  .range(colorRange);
+		.domain(d3.extent(data, function(d) { return +d.dep_count; }))
+		.range(colorRange);
 	var colorMeanUsageTime = d3.scale.quantize()
-							   .domain(d3.extent(data, function(d) { return +d.dep_mean; }))
-							   .range(colorRange);
+		.domain(d3.extent(data, function(d) { return +d.dep_mean; }))
+		.range(colorRange);
 
 	createLegend(1e5, 6, 1, colorDepCount).addTo(map1);
 	createLegend(40, 5, 60, colorMeanUsageTime).addTo(map2);
@@ -42,17 +42,25 @@ function addData(data) {
 			color: colorDepCount(+d.dep_count),
 			fillColor: colorDepCount(+d.dep_count),
 			fillOpacity: 0.65 })
-		 .bindPopup(format(d))
-		 .on('mouseover', function (e) { info1.update(d); })
-         .on('mouseout', function (e) { info1.update(); })
-    	 .addTo(map1);
+			.bindPopup(format(d))
+			.on('mouseover', function(e) { info1.update(d); })
+			.on('mouseout', function(e) { info1.update(); })
+			.addTo(map1);
 
-		L.circle([+d.latitude, +d.longitude], radius(+d.totalDocks), {
+		marker = L.circle([+d.latitude, +d.longitude], radius(+d.totalDocks), {
 			color: colorMeanUsageTime(+d.dep_mean),
 			fillColor: colorMeanUsageTime(+d.dep_mean),
 			fillOpacity: 0.65 })
-		 .bindPopup(format(d))
-		 .addTo(map2);
+			.addTo(map2);
+		
+		marker.on('click', function(e) {
+			if (e.target.getPopup == null) {
+				e.target.bindPopup('<div id="popup-viz" style="width: 675px; height: 250px;"></div>');
+				e.target._popup.options.maxWidth = 450;
+				// parseVega('data/plot-1.json', '#popup-viz');
+			}
+			e.target.openPopup();
+		})
 	});
 }
 
@@ -63,7 +71,7 @@ function createLegend(max, count, factor, colorizer) {
 			grades = numeric.linspace(0, max, count),
 			stepToAdd = (grades[1] - grades[0])/5 + 1;
 
-		for (var i = grades.length; i > 0 ; i--) {
+		for (var i = grades.length; i > 0; i--) {
 			div.innerHTML +=
 				'<i style="background:' + colorizer(factor*(grades[i-1]+stepToAdd)) + '"></i>'
 				+ grades[i-1]
@@ -92,6 +100,10 @@ function createInfo(label, hint, formatter) {
 function format(d) {
 	return '<b>' + d.name + '</b><br />' +
 		   'Docks: ' + d.totalDocks;
+}
+
+function parseVega(spec, div) {
+	vg.parse.spec(spec, function(error, chart) { chart({ el: div }).update(); });
 }
 
 var map1 = createMap('map1');
