@@ -10,6 +10,12 @@ var colorRange = ["#0d0887", "#2a0593", "#41049d", "#5601a4", "#6a00a8", "#7e03a
 				  "#a11b9b", "#b12a90", "#bf3984", "#cc4778", "#d6556d", "#e16462", "#ea7457",
 				  "#f2844b", "#f89540", "#fca636", "#feba2c", "#fcce25", "#f7e425", "#f0f921"];
 
+var margin = {top: 25, right: 20, bottom: 50, left: 30},
+	fullWidth = 500,
+	fullHeight = 250,
+	width = fullWidth - margin.left - margin.right,
+	height = fullHeight - margin.top - margin.bottom;
+
 function createMap(mapID) {
 	var map = L.map(mapID).setView(centerLocation, zoomLevel);
 	L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}', {
@@ -37,6 +43,7 @@ function addData(data) {
 	createLegend(1e5, 6, 1, colorDepCount).addTo(map1);
 	createLegend(40, 5, 60, colorMeanUsageTime).addTo(map2);
 	info1 = createInfo('Citi Bike station information', 'Hover over a station', format).addTo(map1);
+	
 	data.forEach(function(d) {
 		L.circle([+d.latitude, +d.longitude], radius(+d.totalDocks), {
 			color: colorDepCount(+d.dep_count),
@@ -55,12 +62,18 @@ function addData(data) {
 		
 		marker.on('click', function(e) {
 			if (e.target.getPopup == null) {
-				e.target.bindPopup('<div id="popup-viz" style="width: 675px; height: 250px;"></div>');
-				e.target._popup.options.maxWidth = 450;
-				// parseVega('data/plot-1.json', '#popup-viz');
+				popupID = 'popup-viz-' + d.id
+				popupHTML = '<div id="' + popupID +
+					'" style="width: ' + fullWidth +
+					'px; height: ' + fullHeight + 'px;"></div>';
+				e.target.bindPopup(popupHTML);
+				e.target._popup.options.maxWidth = fullWidth;
+				d3.csv("data/stations/" + d.id + ".csv", function(entry) {
+					return { date: new Date(entry.date), usage: +entry.usage };
+				}, addTimeHistogram);
 			}
 			e.target.openPopup();
-		})
+		});
 	});
 }
 
@@ -100,6 +113,84 @@ function createInfo(label, hint, formatter) {
 function format(d) {
 	return '<b>' + d.name + '</b><br />' +
 		   'Docks: ' + d.totalDocks;
+}
+
+function addTimeHistogram(usageData) {
+	var yearStart = 2015;
+	var hist = d3.nest()
+		.key(function(d) { return weekOfYear(d.date); })
+		.rollup(function(d) { return d3.sum(d, function(d2) { return d2.usage; }); })
+		.entries(usageData)
+		.map(function(d) {
+			return { date: dateFromWeek(yearStart, d.key), usage: d.values };
+		});
+
+	var x = function(d) { return d.date; },
+		xScale = d3.time.scale.utc()
+			.domain([x(hist[0]), x(hist[hist.length-1])])
+			.range([0, width]),
+		xAxis = d3.svg.axis()
+			.scale(xScale)
+			.orient("bottom")
+			.ticks(d3.time.months)
+	    	.tickFormat(d3.time.format("%B"))
+	    	.tickSize(8, 0);
+	var y = function(d) { return d.usage; },
+		yScale = d3.scale.linear()
+			.domain([0, d3.max(hist, y)])
+			.range([height, 0]),      
+		yAxis = d3.svg.axis()
+			.scale(yScale)
+			.orient("left");
+
+	// append svg element
+	var svg = d3.select('#' + popupID)
+		.append("svg")
+		.attr("width", fullWidth)
+		.attr("height", fullHeight)
+		.append("g")
+			.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+	// append x axis
+	svg.append("g")
+		.attr("class", "x axis")
+		.attr("transform", "translate(0," + height + ")")
+		.call(xAxis)
+	.selectAll(".tick text")
+		.attr("transform", "rotate(-45)")
+		.style("text-anchor", "end")
+		.attr("x", width/18)
+		.attr("dx", -16)
+		.attr("y", 16);
+
+	// append y axis
+	svg.append("g")
+		.attr("class", "y axis")
+		.call(yAxis)
+		.append("text")
+		.attr("y", -12)
+		.style("text-anchor", "end")
+		.text("Usage");
+
+	// append bars
+	svg.selectAll(".bar")
+		.data(hist)
+		.enter()
+		.append("rect")
+		.attr("class", "bar")
+		.attr("x", function(d) { return xScale(x(d)); })
+		.attr("width", width / (hist.length+2))
+		.attr("y", function(d) { return yScale(y(d)); })
+		.attr("height", function(d) { return height - yScale(y(d)); });
+}
+
+function weekOfYear(date) {
+	var yearStart = new Date(2015, 0, 1);
+	return Math.ceil(( ( (date - yearStart) / 86400000) + 1)/7);
+}
+
+function dateFromWeek(year, week) {
+	return new Date(year, 0, 1 + 7*(week-1));
 }
 
 function parseVega(spec, div) {
