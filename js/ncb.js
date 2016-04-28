@@ -89,7 +89,8 @@ function createInfo(label, hint, formatter) {
 function format(d) {
 	return '<b>' + d.name + '</b><br />' +
 		   'Docks: ' + d.totalDocks + '<br />' +
-		   'Usage count: ' + d.dep_count + '<br />' +
+		   'Depart. count: ' + d.dep_count + '<br />' +
+		   'Arrival count: ' + d.arr_count + '<br />' +
 		   'Mean usage time: ' + parseInt(d.dep_mean/60) + ' min<br />' +
 		   'Median usage time: ' + parseInt(d.dep_median/60) + ' min';
 }
