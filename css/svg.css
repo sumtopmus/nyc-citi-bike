@@ -1,8 +1,8 @@
 .bar {
-	fill: steelblue;
+	fill: #4124bd;
 }
 .bar:hover {
-	fill: red;
+	fill: #f2844b;
 }
 
 .axis {

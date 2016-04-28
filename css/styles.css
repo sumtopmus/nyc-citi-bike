@@ -13,6 +13,8 @@ body > *:first-child {
 body > *:last-child {
     margin-bottom: 0 !important; }
 
+h4.popup { text-align: center; }
+
 a {
     color: #4183C4; }
 a.absent {

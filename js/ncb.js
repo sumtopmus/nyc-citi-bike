@@ -42,38 +42,14 @@ function addData(data) {
 
 	createLegend(1e5, 6, 1, colorDepCount).addTo(map1);
 	createLegend(40, 5, 60, colorMeanUsageTime).addTo(map2);
-	info1 = createInfo('Citi Bike station information', 'Hover over a station', format).addTo(map1);
+	info1 = createInfo('Citi Bike station information', 'Hover over a station', format)
+		.addTo(map1);
+	info2 = createInfo('Citi Bike station information', 'Hover over a station', format)
+		.addTo(map2);
 	
 	data.forEach(function(d) {
-		L.circle([+d.latitude, +d.longitude], radius(+d.totalDocks), {
-			color: colorDepCount(+d.dep_count),
-			fillColor: colorDepCount(+d.dep_count),
-			fillOpacity: 0.65 })
-			.bindPopup(format(d))
-			.on('mouseover', function(e) { info1.update(d); })
-			.on('mouseout', function(e) { info1.update(); })
-			.addTo(map1);
-
-		marker = L.circle([+d.latitude, +d.longitude], radius(+d.totalDocks), {
-			color: colorMeanUsageTime(+d.dep_mean),
-			fillColor: colorMeanUsageTime(+d.dep_mean),
-			fillOpacity: 0.65 })
-			.addTo(map2);
-		
-		marker.on('click', function(e) {
-			if (e.target.getPopup == null) {
-				popupID = 'popup-viz-' + d.id
-				popupHTML = '<div id="' + popupID +
-					'" style="width: ' + fullWidth +
-					'px; height: ' + fullHeight + 'px;"></div>';
-				e.target.bindPopup(popupHTML);
-				e.target._popup.options.maxWidth = fullWidth;
-				d3.csv("data/stations/" + d.id + ".csv", function(entry) {
-					return { date: new Date(entry.date), usage: +entry.usage };
-				}, addTimeHistogram);
-			}
-			e.target.openPopup();
-		});
+		addMarkers(map1, info1, d, radius(+d.totalDocks), colorDepCount(+d.dep_count));
+		addMarkers(map2, info2, d, radius(+d.totalDocks), colorMeanUsageTime(+d.dep_mean));
 	});
 }
 
@@ -99,7 +75,7 @@ function createLegend(max, count, factor, colorizer) {
 function createInfo(label, hint, formatter) {
 	var info = L.control();
 	info.onAdd = function(map) {
-		this._div = L.DomUtil.create('div', 'info');
+		this._div = L.DomUtil.create('div', 'info interactive');
 		this.update();
 		return this._div;
 	};
@@ -112,10 +88,38 @@ function createInfo(label, hint, formatter) {
 
 function format(d) {
 	return '<b>' + d.name + '</b><br />' +
-		   'Docks: ' + d.totalDocks;
+		   'Docks: ' + d.totalDocks + '<br />' +
+		   'Usage count: ' + d.dep_count + '<br />' +
+		   'Mean usage time: ' + parseInt(d.dep_mean/60) + ' min<br />' +
+		   'Median usage time: ' + parseInt(d.dep_median/60) + ' min';
 }
 
-function addTimeHistogram(usageData) {
+function addMarkers(map, info, datum, radius, color) {
+	marker = L.circle([+datum.latitude, +datum.longitude], radius, {
+		color: color,
+		fillColor: color,
+		fillOpacity: 0.65 })
+		.on('mouseover', function(e) { info.update(datum); })
+		.on('mouseout', function(e) { info.update(); })
+		.addTo(map);
+
+	marker.on('click', function(e) {
+		if (e.target.getPopup == null) {
+			popupID = 'popup-viz-' + datum.id
+			popupHTML = '<div id="' + popupID +
+				'" style="width: ' + fullWidth +
+				'px; height: ' + fullHeight + 'px;"></div>';
+			e.target.bindPopup(popupHTML);
+			e.target._popup.options.maxWidth = fullWidth;
+			d3.csv("data/stations/" + datum.id + ".csv", function(entry) {
+				return { date: new Date(entry.date), usage: +entry.usage };
+			}, function(d) { addTimeHistogram(d, datum.name); });
+		}
+		e.target.openPopup();
+	});
+}
+
+function addTimeHistogram(usageData, name) {
 	var yearWeek = d3.time.format.utc("%Y-%W"),
 		year = d3.time.format.utc("%Y"),
 		startYear = year(usageData[0].date),
@@ -161,6 +165,13 @@ function addTimeHistogram(usageData) {
 		.attr("height", fullHeight)
 		.append("g")
 			.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+	svg.append("text")
+        .attr("x", width/2)             
+        .attr("y", 0 - margin.top/2)
+        .attr("text-anchor", "middle") 
+        .style("font-size", "14px")
+        .text(name);
 
 	// append x axis
 	svg.append("g")
