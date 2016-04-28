@@ -10,7 +10,7 @@ var colorRange = ["#0d0887", "#2a0593", "#41049d", "#5601a4", "#6a00a8", "#7e03a
 				  "#a11b9b", "#b12a90", "#bf3984", "#cc4778", "#d6556d", "#e16462", "#ea7457",
 				  "#f2844b", "#f89540", "#fca636", "#feba2c", "#fcce25", "#f7e425", "#f0f921"];
 
-var margin = {top: 25, right: 20, bottom: 50, left: 30},
+var margin = {top: 25, right: 20, bottom: 50, left: 40},
 	fullWidth = 500,
 	fullHeight = 250,
 	width = fullWidth - margin.left - margin.right,
@@ -116,15 +116,20 @@ function format(d) {
 }
 
 function addTimeHistogram(usageData) {
-	var yearStart = 2015;
+	var yearWeek = d3.time.format.utc("%Y-%W"),
+		year = d3.time.format.utc("%Y"),
+		startYear = year(usageData[0].date),
+		endYear = year(usageData[usageData.length-1].date);
 	var hist = d3.nest()
-		.key(function(d) { return weekOfYear(d.date); })
+		.key(function(d) { return yearWeek(d.date);	})
 		.rollup(function(d) { return d3.sum(d, function(d2) { return d2.usage; }); })
 		.entries(usageData)
-		.map(function(d) {
-			return { date: dateFromWeek(yearStart, d.key), usage: d.values };
-		});
+		.map(function(d) { return { date: yearWeek.parse(d.key), usage: d.values };	});
 
+	// for 1-year (365/366 days) only
+	hist[0].date = year.parse(startYear);
+
+	// x and y coords & axes 
 	var x = function(d) { return d.date; },
 		xScale = d3.time.scale.utc()
 			.domain([x(hist[0]), x(hist[hist.length-1])])
@@ -143,6 +148,12 @@ function addTimeHistogram(usageData) {
 			.scale(yScale)
 			.orient("left");
 
+	// for 1-year (365/366 days) only
+	var standardWidth = width / (hist.length + 2),
+		space = (xScale(hist[2].date) - xScale(hist[1].date)) - standardWidth,
+		widthZero = (xScale(hist[1].date) - xScale(hist[0].date)) - space,
+		offset = 1 + space;
+
 	// append svg element
 	var svg = d3.select('#' + popupID)
 		.append("svg")
@@ -159,13 +170,14 @@ function addTimeHistogram(usageData) {
 	.selectAll(".tick text")
 		.attr("transform", "rotate(-45)")
 		.style("text-anchor", "end")
-		.attr("x", width/18)
-		.attr("dx", -16)
-		.attr("y", 16);
+		.attr("x", width/12)
+		.attr("dx", -20)
+		.attr("y", 20);
 
 	// append y axis
 	svg.append("g")
 		.attr("class", "y axis")
+		.attr("transform", "translate(-" + offset + ",0)")
 		.call(yAxis)
 		.append("text")
 		.attr("y", -12)
@@ -179,22 +191,15 @@ function addTimeHistogram(usageData) {
 		.append("rect")
 		.attr("class", "bar")
 		.attr("x", function(d) { return xScale(x(d)); })
-		.attr("width", width / (hist.length+2))
+		.attr("width", function(d) {
+			if (d == hist[0]) {
+				return widthZero;
+			} else {
+				return standardWidth;
+			}
+		})
 		.attr("y", function(d) { return yScale(y(d)); })
 		.attr("height", function(d) { return height - yScale(y(d)); });
-}
-
-function weekOfYear(date) {
-	var yearStart = new Date(2015, 0, 1);
-	return Math.ceil(( ( (date - yearStart) / 86400000) + 1)/7);
-}
-
-function dateFromWeek(year, week) {
-	return new Date(year, 0, 1 + 7*(week-1));
-}
-
-function parseVega(spec, div) {
-	vg.parse.spec(spec, function(error, chart) { chart({ el: div }).update(); });
 }
 
 var map1 = createMap('map1');
